@@ -171,21 +171,21 @@ void setup() {
 
   linearVelocity = DEFAULT_LINEAR_VEL;
   angularVelocity = DEFAULT_ANGULAR_VEL;
-  Serial.println("Micro-ROS initialized");
-  Serial.print("Default velocities: X=");
-  Serial.print(linearVelocity);
-  Serial.print(" m/s, Z=");
-  Serial.print(angularVelocity);
-  Serial.println(" rad/s");
-  Serial.println("(Publish to /linear_velocity and /angular_velocity to override)");
+  // Serial.println("Micro-ROS initialized");
+  // Serial.print("Default velocities: X=");
+  // Serial.print(linearVelocity);
+  // Serial.print(" m/s, Z=");
+  // Serial.print(angularVelocity);
+  // Serial.println(" rad/s");
+  // Serial.println("(Publish to /linear_velocity and /angular_velocity to override)");
 }
 
 void linear_vel_callback(const void* msgin) {
   const std_msgs__msg__Float64* m = (const std_msgs__msg__Float64*)msgin;
   linearVelocity = (float)m->data;
-  Serial.print("Received linear velocity (X): ");
-  Serial.print(linearVelocity);
-  Serial.println(" m/s");
+  // Serial.print("Received linear velocity (X): ");
+  // Serial.print(linearVelocity);
+  // Serial.println(" m/s");
   // Immediately send to moveforward board
   sendVelocity(linearVelocity, angularVelocity);
 }
@@ -193,9 +193,9 @@ void linear_vel_callback(const void* msgin) {
 void angular_vel_callback(const void* msgin) {
   const std_msgs__msg__Float64* m = (const std_msgs__msg__Float64*)msgin;
   angularVelocity = (float)m->data;
-  Serial.print("Received angular velocity (Z): ");
-  Serial.print(angularVelocity);
-  Serial.println(" rad/s");
+  // Serial.print("Received angular velocity (Z): ");
+  // Serial.print(angularVelocity);
+  // Serial.println(" rad/s");
   // Immediately send to moveforward board
   sendVelocity(linearVelocity, angularVelocity);
 }
@@ -236,15 +236,15 @@ void sendVelocity(float linearVel, float angularVel){
   // Send struct as binary data via ESP-NOW
   esp_err_t result = esp_now_send(peerMAC, (uint8_t *)&velCmd, sizeof(velocity_command_t));
 
-  if (result == ESP_OK){
-    Serial.print("Sent velocity to moveforward: X=");
-    Serial.print(linearVel);
-    Serial.print(" m/s, Z=");
-    Serial.print(angularVel);
-    Serial.println(" rad/s");
-  } else {
-    Serial.println("Failed to send velocity via ESP-NOW");
-  }
+  // if (result == ESP_OK){
+  //   Serial.print("Sent velocity to moveforward: X=");
+  //   Serial.print(linearVel);
+  //   Serial.print(" m/s, Z=");
+  //   Serial.print(angularVel);
+  //   Serial.println(" rad/s");
+  // } else {
+  //   Serial.println("Failed to send velocity via ESP-NOW");
+  // }
 }
 
 
@@ -267,22 +267,22 @@ void OnDataRecv(const esp_now_recv_info* info, const unsigned char* incomingData
       currentZ = z / 1000.0f;
       qualityFactor = qf;
       
-      Serial.print("Received coordinates: X=");
-      Serial.print(currentX);
-      Serial.print(" m, Y=");
-      Serial.print(currentY);
-      Serial.print(" m, Z=");
-      Serial.print(currentZ);
-      Serial.print(" m, QF=");
-      Serial.println(qualityFactor);
+      // Serial.print("Received coordinates: X=");
+      // Serial.print(currentX);
+      // Serial.print(" m, Y=");
+      // Serial.print(currentY);
+      // Serial.print(" m, Z=");
+      // Serial.print(currentZ);
+      // Serial.print(" m, QF=");
+      // Serial.println(qualityFactor);
     } else {
-      Serial.print("Failed to parse coordinates JSON: ");
-      Serial.println(jsonStr);
+      // Serial.print("Failed to parse coordinates JSON: ");
+      // Serial.println(jsonStr);
     }
   } else {
     // Handle other data types if needed
-    Serial.print("Received non-JSON data, length: ");
-    Serial.println(len);
+    // Serial.print("Received non-JSON data, length: ");
+    // Serial.println(len);
   }
 }
 void OnDataSent(const wifi_tx_info_t* info, esp_now_send_status_t status) {
