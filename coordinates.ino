@@ -21,7 +21,7 @@ typedef struct __attribute__((packed)) {
   float targetZ;      // Target Z coordinate (meters) or orientation
   float linearVel;    // Linear velocity in m/s
   float angularVel;   // Angular velocity in rad/s
-} robot_command_t;
+} velocity_command_t;
 
 typedef struct __attribute__((packed)) {
   float currentX;      // Target X coordinate 
