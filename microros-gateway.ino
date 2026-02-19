@@ -32,6 +32,8 @@ uint8_t peerMAC[6] = {0x28, 0x05, 0xA5, 0x26, 0xFB, 0x28};
 rcl_node_t node;
 rcl_publisher_t publisher;
 rcl_publisher_t speed;
+rcl_publisher_t linear_vel_pub;   // Publisher for linear velocity
+rcl_publisher_t angular_vel_pub;  // Publisher for angular velocity
 rclc_support_t support;
 rcl_allocator_t allocator;
 
@@ -43,6 +45,8 @@ rcl_subscription_t angular_vel_sub;
 std_msgs__msg__Float64 msg;
 std_msgs__msg__Float64 linear_vel_msg;
 std_msgs__msg__Float64 angular_vel_msg;
+std_msgs__msg__Float64 linear_vel_pub_msg;   // Message for publishing linear velocity
+std_msgs__msg__Float64 angular_vel_pub_msg;  // Message for publishing angular velocity
 
 float linearVelocity;   // X: linear velocity in m/s
 float angularVelocity;  // Z: angular velocity in rad/s
@@ -95,6 +99,20 @@ void setup() {
     &node,
     ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64),
     "sendspeed"
+  );
+
+  // Publishers to publish current velocity values to ROS topics
+  rclc_publisher_init_default(
+    &linear_vel_pub,
+    &node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64),
+    "linear_velocity"
+  );
+  rclc_publisher_init_default(
+    &angular_vel_pub,
+    &node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64),
+    "angular_velocity"
   );
 
   // Subscriptions to receive velocity commands from ROS
@@ -151,6 +169,14 @@ void angular_vel_callback(const void* msgin) {
 void loop() {
   // Spin micro-ROS so we receive velocity commands and stay connected to the agent
   rclc_executor_spin_some(&executor, RCL_MS_TO_NS(50));
+  
+  // Publish current velocity values to ROS topics
+  linear_vel_pub_msg.data = (double)linearVelocity;
+  rcl_publish(&linear_vel_pub, &linear_vel_pub_msg, NULL);
+  
+  angular_vel_pub_msg.data = (double)angularVelocity;
+  rcl_publish(&angular_vel_pub, &angular_vel_pub_msg, NULL);
+  
   delay(50);
   // Note: Velocity is sent immediately in callbacks when received
   // This periodic send ensures the robot keeps moving even if no new commands arrive
