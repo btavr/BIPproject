@@ -102,6 +102,12 @@ void speed_cmd_callback(const void* msgin) {
   const std_msgs__msg__Float64* m = (const std_msgs__msg__Float64*)msgin;
   speedRight = (float)m->data;
   speedLeft = (float)m->data;
+  Serial.print("Received speed command: ");
+  Serial.print(speedLeft);
+  Serial.print(" (both wheels)");
+  Serial.println();
+  // Immediately send to moveforward board
+  sendSpeed(speedRight, speedLeft);
 }
 
 // ========== MAIN LOOP ==========
@@ -109,7 +115,8 @@ void loop() {
   // Spin micro-ROS so we receive speed_cmd and stay connected to the agent
   rclc_executor_spin_some(&executor, RCL_MS_TO_NS(50));
   delay(50);
-  // Send current speed to moveforward board via ESP-NOW
+  // Note: Speed is sent immediately in speed_cmd_callback when received
+  // This periodic send ensures the robot keeps moving even if no new commands arrive
   sendSpeed(speedRight, speedLeft);
 }
 
@@ -117,13 +124,18 @@ void sendSpeed(float speedRight, float speedLeft){
   char messageBuffer[80];
 
   int len = snprintf(messageBuffer, sizeof(messageBuffer),
-    "speedRight=%06.2f speedLeft=%+06.2f", // simplify string and create onDataRec
+    "speedRight=%06.2f speedLeft=%+06.2f",
     speedRight, speedLeft);
 
   esp_err_t result = esp_now_send(peerMAC, (uint8_t *)messageBuffer, len);
 
   if (result == ESP_OK){
-    Serial.print("Sent successfully");
+    Serial.print("Sent speed to moveforward: L=");
+    Serial.print(speedLeft);
+    Serial.print(" R=");
+    Serial.println(speedRight);
+  } else {
+    Serial.println("Failed to send speed via ESP-NOW");
   }
 }
 
