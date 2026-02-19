@@ -230,6 +230,10 @@ void loop() {
 void sendVelocity(float linearVel, float angularVel){
   // Create struct with velocity data
   velocity_command_t velCmd;
+  // Initialize all fields to avoid sending garbage data
+  velCmd.targetX = 0.0f;
+  velCmd.targetY = 0.0f;
+  velCmd.targetZ = 0.0f;
   velCmd.linearVel = linearVel;
   velCmd.angularVel = angularVel;
 
