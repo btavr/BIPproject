@@ -11,11 +11,23 @@
 #include <std_msgs/msg/bool.h>
 
 // ========== DATA STRUCTURE ==========
-// Structure to send velocity commands via ESP-NOW
+// Structure to send velocity commands via ESP-NOW (must match moveforward.ino)
 typedef struct __attribute__((packed)) {
-  float linearVel;   // X: linear velocity in m/s
-  float angularVel;  // Z: angular velocity in rad/s
+  float targetX;      // Target X coordinate (meters)
+  float targetY;      // Target Y coordinate (meters)
+  float targetZ;      // Target Z coordinate (meters) or orientation
+  float linearVel;    // Linear velocity in m/s
+  float angularVel;   // Angular velocity in rad/s
 } velocity_command_t;
+
+// Structure to receive current coordinates from moveforward board
+typedef struct __attribute__((packed)) {
+  float currentX;      // Current X coordinate (meters)
+  float currentY;      // Current Y coordinate (meters)
+  float currentZ;      // Current Z coordinate (meters) or orientation
+  float distance;      // Distance measurement
+  float orientation;   // Orientation in radians
+} current_coordinates_t;
 
 // ========== FUNCTION PROTOTYPES ==========
 void OnDataSent(const wifi_tx_info_t* info, esp_now_send_status_t status);
@@ -34,6 +46,11 @@ rcl_publisher_t publisher;
 rcl_publisher_t speed;
 rcl_publisher_t linear_vel_pub;   // Publisher for linear velocity
 rcl_publisher_t angular_vel_pub;  // Publisher for angular velocity
+rcl_publisher_t current_x_pub;    // Publisher for current X coordinate
+rcl_publisher_t current_y_pub;    // Publisher for current Y coordinate
+rcl_publisher_t current_z_pub;    // Publisher for current Z coordinate
+rcl_publisher_t distance_pub;      // Publisher for distance
+rcl_publisher_t orientation_pub;  // Publisher for orientation
 rclc_support_t support;
 rcl_allocator_t allocator;
 
@@ -47,6 +64,11 @@ std_msgs__msg__Float64 linear_vel_msg;
 std_msgs__msg__Float64 angular_vel_msg;
 std_msgs__msg__Float64 linear_vel_pub_msg;   // Message for publishing linear velocity
 std_msgs__msg__Float64 angular_vel_pub_msg;  // Message for publishing angular velocity
+std_msgs__msg__Float64 current_x_pub_msg;    // Message for publishing current X
+std_msgs__msg__Float64 current_y_pub_msg;    // Message for publishing current Y
+std_msgs__msg__Float64 current_z_pub_msg;    // Message for publishing current Z
+std_msgs__msg__Float64 distance_pub_msg;      // Message for publishing distance
+std_msgs__msg__Float64 orientation_pub_msg;  // Message for publishing orientation
 
 float linearVelocity;   // X: linear velocity in m/s
 float angularVelocity;  // Z: angular velocity in rad/s
@@ -127,6 +149,38 @@ void setup() {
     ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64),
     "angular_velocity"
   );
+  
+  // Publishers for current coordinates from robot
+  rclc_publisher_init_default(
+    &current_x_pub,
+    &node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64),
+    "current_x"
+  );
+  rclc_publisher_init_default(
+    &current_y_pub,
+    &node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64),
+    "current_y"
+  );
+  rclc_publisher_init_default(
+    &current_z_pub,
+    &node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64),
+    "current_z"
+  );
+  rclc_publisher_init_default(
+    &distance_pub,
+    &node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64),
+    "distance"
+  );
+  rclc_publisher_init_default(
+    &orientation_pub,
+    &node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64),
+    "orientation"
+  );
 
   // Subscriptions to receive velocity commands from ROS
   // /linear_velocity: X value (linear velocity in m/s)
@@ -199,6 +253,9 @@ void loop() {
 void sendVelocity(float linearVel, float angularVel){
   // Create struct with velocity data
   velocity_command_t velCmd;
+  velCmd.targetX = 0.0f;      // Not used for velocity-only commands
+  velCmd.targetY = 0.0f;      // Not used for velocity-only commands
+  velCmd.targetZ = 0.0f;      // Not used for velocity-only commands
   velCmd.linearVel = linearVel;
   velCmd.angularVel = angularVel;
 
@@ -222,14 +279,55 @@ void sendVelocity(float linearVel, float angularVel){
 
 
 void OnDataRecv(const esp_now_recv_info* info, const unsigned char* incomingData, int len) {
+  Serial.print("ESP-NOW: Received ");
+  Serial.print(len);
+  Serial.print(" bytes from MAC: ");
+  for (int i = 0; i < 6; i++) {
+    if (i > 0) Serial.print(":");
+    if (info->src_addr[i] < 0x10) Serial.print("0");
+    Serial.print(info->src_addr[i], HEX);
+  }
+  Serial.println();
   
-  
-  char msg[len+1] = {0};
-  double number;
-  memcpy(&number, (void*)incomingData, sizeof(double));
-
-  Serial.print("Received data: ");
-  Serial.println(number);
+  // Check if this is coordinates data (from moveforward board)
+  if (len == sizeof(current_coordinates_t)) {
+    current_coordinates_t coords;
+    memcpy(&coords, incomingData, sizeof(current_coordinates_t));
+    
+    Serial.print("Received coordinates: X=");
+    Serial.print(coords.currentX);
+    Serial.print(", Y=");
+    Serial.print(coords.currentY);
+    Serial.print(", Z=");
+    Serial.print(coords.currentZ);
+    Serial.print(", distance=");
+    Serial.print(coords.distance);
+    Serial.print(", orientation=");
+    Serial.println(coords.orientation);
+    
+    // Publish coordinates to ROS topics
+    current_x_pub_msg.data = (double)coords.currentX;
+    rcl_publish(&current_x_pub, &current_x_pub_msg, NULL);
+    
+    current_y_pub_msg.data = (double)coords.currentY;
+    rcl_publish(&current_y_pub, &current_y_pub_msg, NULL);
+    
+    current_z_pub_msg.data = (double)coords.currentZ;
+    rcl_publish(&current_z_pub, &current_z_pub_msg, NULL);
+    
+    distance_pub_msg.data = (double)coords.distance;
+    rcl_publish(&distance_pub, &distance_pub_msg, NULL);
+    
+    orientation_pub_msg.data = (double)coords.orientation;
+    rcl_publish(&orientation_pub, &orientation_pub_msg, NULL);
+    
+    Serial.println("Published coordinates to ROS topics");
+  } else {
+    // Legacy data format (for backward compatibility)
+    Serial.print("Received legacy data (");
+    Serial.print(len);
+    Serial.println(" bytes)");
+  }
 }
 void OnDataSent(const wifi_tx_info_t* info, esp_now_send_status_t status) {
   if (status == ESP_NOW_SEND_SUCCESS) {
