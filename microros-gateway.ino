@@ -18,6 +18,10 @@ esp_err_t addPeer(uint8_t* mac, esp_now_peer_info_t* peerInfo);
 // Variables
 uint8_t peerMAC[6] = {0x28, 0x05, 0xA5, 0x26, 0xFB, 0x28};
 
+// Default speed sent to robot (used until a /speed_cmd message is received from ROS)
+#define DEFAULT_SPEED_LEFT  0.2f
+#define DEFAULT_SPEED_RIGHT 0.2f
+
 rcl_node_t node;
 rcl_publisher_t publisher;
 rcl_publisher_t speed;
@@ -93,9 +97,14 @@ void setup() {
   rclc_executor_init(&executor, &support.context, 1, &allocator);
   rclc_executor_add_subscription(&executor, &speed_cmd_sub, &speed_cmd_msg, &speed_cmd_callback, ON_NEW_DATA);
 
-  speedRight = 0.0f;
-  speedLeft = 0.0f;
+  speedRight = DEFAULT_SPEED_RIGHT;
+  speedLeft = DEFAULT_SPEED_LEFT;
   Serial.println("Micro-ROS initialized");
+  Serial.print("Default speed: L=");
+  Serial.print(speedLeft);
+  Serial.print(" R=");
+  Serial.println(speedRight);
+  Serial.println("(Publish to /speed_cmd to override)");
 }
 
 void speed_cmd_callback(const void* msgin) {
