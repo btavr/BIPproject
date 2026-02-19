@@ -147,19 +147,19 @@ void setup() {
   coordinates_msg.data.capacity = sizeof(coordinates_str);
 
   // Subscriptions to receive velocity commands from ROS
-  // /linear_velocity: X value (linear velocity in m/s)
+  // /cmd_linear_velocity: Command for linear velocity in m/s
   rclc_subscription_init_default(
     &linear_vel_sub,
     &node,
     ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64),
-    "linear_velocity"
+    "cmd_linear_velocity"
   );
-  // /angular_velocity: Z value (angular velocity in rad/s)
+  // /cmd_angular_velocity: Command for angular velocity in rad/s
   rclc_subscription_init_default(
     &angular_vel_sub,
     &node,
     ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64),
-    "angular_velocity"
+    "cmd_angular_velocity"
   );
   rclc_executor_init(&executor, &support.context, 2, &allocator);
   rclc_executor_add_subscription(&executor, &linear_vel_sub, &linear_vel_msg, &linear_vel_callback, ON_NEW_DATA);
@@ -221,7 +221,17 @@ void sendVelocity(float linearVel, float angularVel){
   velCmd.angularVel = angularVel;
 
   // Send struct as binary data via ESP-NOW
-  esp_now_send(peerMAC, (uint8_t *)&velCmd, sizeof(velocity_command_t));
+  esp_err_t result = esp_now_send(peerMAC, (uint8_t *)&velCmd, sizeof(velocity_command_t));
+  
+  // Debug: Check if speed is being sent
+  Serial.print("TX: L=");
+  Serial.print(linearVel);
+  Serial.print(" A=");
+  Serial.print(angularVel);
+  Serial.print(" SZ=");
+  Serial.print(sizeof(velocity_command_t));
+  Serial.print(" RES=");
+  Serial.println(result == ESP_OK ? "OK" : "FAIL");
 }
 
 
@@ -263,7 +273,10 @@ void OnDataRecv(const esp_now_recv_info* info, const unsigned char* incomingData
   }
 }
 void OnDataSent(const wifi_tx_info_t* info, esp_now_send_status_t status) {
-  return;
+  // Debug: Check send status
+  if (status != ESP_NOW_SEND_SUCCESS) {
+    Serial.println("TX_CB: FAILED");
+  }
 }
 
 esp_err_t addPeer(uint8_t* mac, esp_now_peer_info_t* peerInfo){

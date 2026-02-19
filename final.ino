@@ -151,12 +151,22 @@ void OnDataRecv(const esp_now_recv_info* info, const unsigned char* incomingData
     linearVelocity = velCmd.linearVel;
     angularVelocity = velCmd.angularVel;
     
+    // Debug: Check if speed is being received
+    Serial.print("RX: L=");
+    Serial.print(linearVelocity);
+    Serial.print(" A=");
+    Serial.print(angularVelocity);
+    Serial.print(" LEN=");
+    Serial.println(len);
+    
     sendToWaveRover(linearVelocity, angularVelocity);
     
   } else {
     // 2. TEXTO DE RETORNO (O que vias no teu Script 2)
     char msg[len+1] = {0};
     memcpy(msg, (void*)incomingData, len);
+    Serial.print("RX: Unknown len=");
+    Serial.println(len);
   }
 }
 
@@ -167,6 +177,10 @@ void sendToWaveRover(float linearVel, float angularVel) {
   
   // Envia para o Wave Rover usando a Serial1
   Serial1.println(cmd);
+  
+  // Debug: Check if command is sent to robot
+  Serial.print("ROBOT: ");
+  Serial.println(cmd);
 }
 
 void OnDataSent(const wifi_tx_info_t* info, esp_now_send_status_t status) { 
