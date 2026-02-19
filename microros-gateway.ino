@@ -278,135 +278,145 @@ void sendVelocity(float linearVel, float angularVel){
   // Send struct as binary data via ESP-NOW
   esp_err_t result = esp_now_send(peerMAC, (uint8_t *)&velCmd, sizeof(velocity_command_t));
 
-  if (result == ESP_OK){
-    Serial.print("Sent velocity to moveforward: X=");
-    Serial.print(linearVel);
-    Serial.print(" m/s, Z=");
-    Serial.print(angularVel);
-    Serial.print(" rad/s (size=");
-    Serial.print(sizeof(velocity_command_t));
-    Serial.println(" bytes)");
-  } else {
-    Serial.print("Failed to send velocity via ESP-NOW. Error code: ");
-    Serial.println(result);
-  }
+  // if (result == ESP_OK){
+  //   Serial.print("Sent velocity to moveforward: X=");
+  //   Serial.print(linearVel);
+  //   Serial.print(" m/s, Z=");
+  //   Serial.print(angularVel);
+  //   Serial.print(" rad/s (size=");
+  //   Serial.print(sizeof(velocity_command_t));
+  //   Serial.println(" bytes)");
+  // } else {
+  //   Serial.print("Failed to send velocity via ESP-NOW. Error code: ");
+  //   Serial.println(result);
+  // }
 }
 
 
 
 void OnDataRecv(const esp_now_recv_info* info, const unsigned char* incomingData, int len) {
-  Serial.println("\n=== ESP-NOW DATA RECEIVED ===");
-  Serial.print("Received ");
-  Serial.print(len);
-  Serial.print(" bytes from MAC: ");
-  for (int i = 0; i < 6; i++) {
-    if (i > 0) Serial.print(":");
-    if (info->src_addr[i] < 0x10) Serial.print("0");
-    Serial.print(info->src_addr[i], HEX);
-  }
-  Serial.print(" (expected ");
-  Serial.print(sizeof(current_coordinates_t));
-  Serial.println(" bytes for coordinates)");
+  // Serial.println("\n=== ESP-NOW DATA RECEIVED ===");
+  // Serial.print("Received ");
+  // Serial.print(len);
+  // Serial.print(" bytes from MAC: ");
+  // for (int i = 0; i < 6; i++) {
+  //   if (i > 0) Serial.print(":");
+  //   if (info->src_addr[i] < 0x10) Serial.print("0");
+  //   Serial.print(info->src_addr[i], HEX);
+  // }
+  // Serial.print(" (expected ");
+  // Serial.print(sizeof(current_coordinates_t));
+  // Serial.println(" bytes for coordinates)");
   
   // Check if this is coordinates data (from moveforward board)
   if (len == sizeof(current_coordinates_t)) {
-    Serial.println("Data size matches coordinates struct!");
+    // Serial.println("Data size matches coordinates struct!");
     current_coordinates_t coords;
     memcpy(&coords, incomingData, sizeof(current_coordinates_t));
     
-    Serial.print("Parsed coordinates: X=");
-    Serial.print(coords.currentX, 6);  // More decimal places for debugging
-    Serial.print(", Y=");
-    Serial.print(coords.currentY, 6);
-    Serial.print(", Z=");
-    Serial.print(coords.currentZ, 6);
-    Serial.print(", distance=");
-    Serial.print(coords.distance, 6);
-    Serial.print(", orientation=");
-    Serial.println(coords.orientation, 6);
+    // Serial.print("Parsed coordinates: X=");
+    // Serial.print(coords.currentX, 6);  // More decimal places for debugging
+    // Serial.print(", Y=");
+    // Serial.print(coords.currentY, 6);
+    // Serial.print(", Z=");
+    // Serial.print(coords.currentZ, 6);
+    // Serial.print(", distance=");
+    // Serial.print(coords.distance, 6);
+    // Serial.print(", orientation=");
+    // Serial.println(coords.orientation, 6);
     
     // Publish coordinates to ROS topics immediately when received (callback-driven)
     current_x_pub_msg.data = (double)coords.currentX;
     rcl_ret_t ret_x = rcl_publish(&current_x_pub, &current_x_pub_msg, NULL);
-    if (ret_x != RCL_RET_OK) {
-      Serial.print("ERROR publishing X: ");
-      Serial.println(ret_x);
-    } else {
-      Serial.print("✓ Published X=");
-      Serial.print(coords.currentX, 6);
-      Serial.println(" to /current_x");
-    }
+    // if (ret_x != RCL_RET_OK) {
+    //   Serial.print("ERROR publishing X: ");
+    //   Serial.println(ret_x);
+    // } else {
+    //   Serial.print("✓ Published X=");
+    //   Serial.print(coords.currentX, 6);
+    //   Serial.println(" to /current_x");
+    // }
     
     current_y_pub_msg.data = (double)coords.currentY;
     rcl_ret_t ret_y = rcl_publish(&current_y_pub, &current_y_pub_msg, NULL);
-    if (ret_y != RCL_RET_OK) {
-      Serial.print("ERROR publishing Y: ");
-      Serial.println(ret_y);
-    } else {
-      Serial.print("✓ Published Y=");
-      Serial.print(coords.currentY, 6);
-      Serial.println(" to /current_y");
-    }
+    // if (ret_y != RCL_RET_OK) {
+    //   Serial.print("ERROR publishing Y: ");
+    //   Serial.println(ret_y);
+    // } else {
+    //   Serial.print("✓ Published Y=");
+    //   Serial.print(coords.currentY, 6);
+    //   Serial.println(" to /current_y");
+    // }
     
     current_z_pub_msg.data = (double)coords.currentZ;
     rcl_ret_t ret_z = rcl_publish(&current_z_pub, &current_z_pub_msg, NULL);
-    if (ret_z != RCL_RET_OK) {
-      Serial.print("ERROR publishing Z: ");
-      Serial.println(ret_z);
-    } else {
-      Serial.print("✓ Published Z=");
-      Serial.print(coords.currentZ, 6);
-      Serial.println(" to /current_z");
-    }
+    // if (ret_z != RCL_RET_OK) {
+    //   Serial.print("ERROR publishing Z: ");
+    //   Serial.println(ret_z);
+    // } else {
+    //   Serial.print("✓ Published Z=");
+    //   Serial.print(coords.currentZ, 6);
+    //   Serial.println(" to /current_z");
+    // }
     
     distance_pub_msg.data = (double)coords.distance;
     rcl_ret_t ret_d = rcl_publish(&distance_pub, &distance_pub_msg, NULL);
-    if (ret_d != RCL_RET_OK) {
-      Serial.print("ERROR publishing distance: ");
-      Serial.println(ret_d);
-    }
+    // if (ret_d != RCL_RET_OK) {
+    //   Serial.print("ERROR publishing distance: ");
+    //   Serial.println(ret_d);
+    // }
     
     orientation_pub_msg.data = (double)coords.orientation;
     rcl_ret_t ret_o = rcl_publish(&orientation_pub, &orientation_pub_msg, NULL);
-    if (ret_o != RCL_RET_OK) {
-      Serial.print("ERROR publishing orientation: ");
-      Serial.println(ret_o);
-    }
+    // if (ret_o != RCL_RET_OK) {
+    //   Serial.print("ERROR publishing orientation: ");
+    //   Serial.println(ret_o);
+    // }
     
-    Serial.println("✓ All coordinates published to ROS topics");
-    Serial.println("=== END ESP-NOW RECEIVE ===\n");
+    // Serial.println("✓ All coordinates published to ROS topics");
+    // Serial.println("=== END ESP-NOW RECEIVE ===\n");
   } else {
-    // Legacy data format (for backward compatibility)
-    Serial.print("Received legacy/wrong size data (");
-    Serial.print(len);
-    Serial.print(" bytes, expected ");
-    Serial.print(sizeof(current_coordinates_t));
-    Serial.println(" bytes)");
-    Serial.println("=== END ESP-NOW RECEIVE ===\n");
+    // // Legacy data format (for backward compatibility)
+    // Serial.print("Received legacy/wrong size data (");
+    // Serial.print(len);
+    // Serial.print(" bytes, expected ");
+    // Serial.print(sizeof(current_coordinates_t));
+    // Serial.println(" bytes)");
+    // Serial.println("=== END ESP-NOW RECEIVE ===\n");
   }
 }
 void OnDataSent(const wifi_tx_info_t* info, esp_now_send_status_t status) {
-  if (status == ESP_NOW_SEND_SUCCESS) {
-    Serial.println("ESP-NOW: Message sent successfully");
-  } else {
-    Serial.println("ESP-NOW: Message send failed!");
+  // if (status == ESP_NOW_SEND_SUCCESS) {
+  //   Serial.println("ESP-NOW: Message sent successfully");
+  // } else {
+  //   Serial.println("ESP-NOW: Message send failed!");
+  // }
+}
+esp_err_t addPeer(uint8_t* mac, esp_now_peer_info_t* peerInfo){
+  if(peerInfo == NULL){
+    peerInfo = (esp_now_peer_info_t*)malloc(sizeof(esp_now_peer_info_t));
+    memset(peerInfo, 0, sizeof(esp_now_peer_info_t));
   }
+  memcpy(peerInfo->peer_addr, mac, 6);
+  peerInfo->channel = 0;
+  peerInfo->encrypt = false;
+  return esp_now_add_peer(peerInfo);
 }
 
-esp_err_t addPeer(uint8_t* mac, esp_now_peer_info_t* peerInfo){
-  esp_now_peer_info_t* localPeerInfo;
-  if(peerInfo == NULL){
-    localPeerInfo = (esp_now_peer_info_t*)malloc(sizeof(esp_now_peer_info_t));
-    memset(localPeerInfo, 0, sizeof(esp_now_peer_info_t));
-  } else {
-    localPeerInfo = peerInfo;
-  }
-  memcpy(localPeerInfo->peer_addr, mac, 6);
-  localPeerInfo->channel = 1;  // Match the channel set in setup()
-  localPeerInfo->encrypt = false;
-  esp_err_t result = esp_now_add_peer(localPeerInfo);
-  if (peerInfo == NULL) {
-    free(localPeerInfo);  // Free allocated memory
-  }
-  return result;
-}
+// esp_err_t addPeer(uint8_t* mac, esp_now_peer_info_t* peerInfo){
+//   esp_now_peer_info_t* localPeerInfo;
+//   if(peerInfo == NULL){
+//     localPeerInfo = (esp_now_peer_info_t*)malloc(sizeof(esp_now_peer_info_t));
+//     memset(localPeerInfo, 0, sizeof(esp_now_peer_info_t));
+//   } else {
+//     localPeerInfo = peerInfo;
+//   }
+//   memcpy(localPeerInfo->peer_addr, mac, 6);
+//   localPeerInfo->channel = 1;  // Match the channel set in setup()
+//   localPeerInfo->encrypt = false;
+//   esp_err_t result = esp_now_add_peer(localPeerInfo);
+//   // if (peerInfo == NULL) {
+//   //   free(localPeerInfo);  // Free allocated memory
+//   // }
+//   return result;
+// }
