@@ -2,11 +2,11 @@
 #include <esp_now.h>
 #include <esp_wifi.h>
 #include <WiFi.h>
+#include <string.h>
 
 #include <micro_ros_arduino.h>
 #include <rclc/rclc.h>
 #include <std_msgs/msg/float64.h>
-
 #include <rclc/executor.h>
 #include <std_msgs/msg/bool.h>
 
@@ -27,10 +27,14 @@ rcl_allocator_t allocator;
 
 rclc_executor_t executor;
 rcl_subscription_t subscriber;
+rcl_subscription_t speed_cmd_sub;
 std_msgs__msg__Float64 msg;
+std_msgs__msg__Float64 speed_cmd_msg;
 
 float speedRight;
 float speedLeft;
+
+void speed_cmd_callback(const void* msgin);
 
 // ========== SETUP FUNCTION ==========
 void setup() {
@@ -78,15 +82,34 @@ void setup() {
     ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64),
     "sendspeed"
   );
+
+  // Subscription to receive speed command from ROS (one value used for both L and R)
+  rclc_subscription_init_default(
+    &speed_cmd_sub,
+    &node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64),
+    "speed_cmd"
+  );
+  rclc_executor_init(&executor, &support.context, 1, &allocator);
+  rclc_executor_add_subscription(&executor, &speed_cmd_sub, &speed_cmd_msg, &speed_cmd_callback, ON_NEW_DATA);
+
+  speedRight = 0.0f;
+  speedLeft = 0.0f;
   Serial.println("Micro-ROS initialized");
+}
+
+void speed_cmd_callback(const void* msgin) {
+  const std_msgs__msg__Float64* m = (const std_msgs__msg__Float64*)msgin;
+  speedRight = (float)m->data;
+  speedLeft = (float)m->data;
 }
 
 // ========== MAIN LOOP ==========
 void loop() {
-
-  delay(1000);
-  char msg[16] = "Hello";
-  esp_now_send(peerMAC, (uint8_t*)msg, strlen(msg));
+  // Spin micro-ROS so we receive speed_cmd and stay connected to the agent
+  rclc_executor_spin_some(&executor, RCL_MS_TO_NS(50));
+  delay(50);
+  // Send current speed to moveforward board via ESP-NOW
   sendSpeed(speedRight, speedLeft);
 }
 
