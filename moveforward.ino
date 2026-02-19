@@ -6,13 +6,20 @@
 #define RXD2 16 // Conectar ao TX do Wave Rover
 #define TXD2 17 // Conectar ao RX do Wave Rover
 
+// ========== DATA STRUCTURE ==========
+// Structure to receive velocity commands via ESP-NOW (must match gateway structure)
+typedef struct __attribute__((packed)) {
+  float linearVel;   // X: linear velocity in m/s
+  float angularVel;  // Z: angular velocity in rad/s
+} velocity_command_t;
+
 // ========== FUNCTION PROTOTYPES ==========
 void OnDataRecv(const esp_now_recv_info* info, const unsigned char* incomingData, int len);
-void sendToWaveRover(float left, float right);
+void sendToWaveRover(float linearVel, float angularVel);
 
-// Speed received from gateway via ESP-NOW
-float speedLeft = 0.0f;
-float speedRight = 0.0f;
+// Velocity received from gateway via ESP-NOW
+float linearVelocity = 0.0f;   // X: linear velocity in m/s
+float angularVelocity = 0.0f;  // Z: angular velocity in rad/s
 
 void setup() {
   Serial.begin(115200);
@@ -37,33 +44,39 @@ void setup() {
 
 void OnDataRecv(const esp_now_recv_info* info, const unsigned char* incomingData, int len) {
   (void)info;
-  if (len <= 0 || len >= 80) return;
   
-  char buf[80];
-  memcpy(buf, incomingData, len);
-  buf[len] = '\0';
-  
-  // Parse the speed command from gateway: "speedRight=XX.XX speedLeft=XX.XX"
-  float left = 0.0f, right = 0.0f;
-  if (sscanf(buf, "speedRight=%f speedLeft=%f", &right, &left) == 2) {
-    speedLeft = left;
-    speedRight = right;
-    Serial.print("Received speed: L=");
-    Serial.print(speedLeft);
-    Serial.print(" R=");
-    Serial.println(speedRight);
-    // Send command to Wave Rover robot
-    sendToWaveRover(speedLeft, speedRight);
-  } else {
-    Serial.print("Failed to parse speed command: ");
-    Serial.println(buf);
+  // Check if received data matches our struct size
+  if (len != sizeof(velocity_command_t)) {
+    Serial.print("Invalid data length. Expected ");
+    Serial.print(sizeof(velocity_command_t));
+    Serial.print(" bytes, received ");
+    Serial.println(len);
+    return;
   }
+  
+  // Copy received data into struct
+  velocity_command_t velCmd;
+  memcpy(&velCmd, incomingData, sizeof(velocity_command_t));
+  
+  // Extract velocity values from struct
+  linearVelocity = velCmd.linearVel;
+  angularVelocity = velCmd.angularVel;
+  
+  Serial.print("Received velocity: X=");
+  Serial.print(linearVelocity);
+  Serial.print(" m/s, Z=");
+  Serial.print(angularVelocity);
+  Serial.println(" rad/s");
+  
+  // Send command to Wave Rover robot using ROS Control format
+  sendToWaveRover(linearVelocity, angularVelocity);
 }
 
-void sendToWaveRover(float left, float right) {
-  // Wave Rover format: {"T":1,"L":left,"R":right}
+void sendToWaveRover(float linearVel, float angularVel) {
+  // ROS Control format: {"T":13,"X":linearVel,"Z":angularVel}
+  // X = linear velocity in m/s, Z = angular velocity in rad/s
   char cmd[64];
-  snprintf(cmd, sizeof(cmd), "{\"T\":1,\"L\":%.2f,\"R\":%.2f}", (double)left, (double)right);
+  snprintf(cmd, sizeof(cmd), "{\"T\":13,\"X\":%.3f,\"Z\":%.3f}", (double)linearVel, (double)angularVel);
   Serial2.println(cmd);
   Serial.print("Sent to robot: ");
   Serial.println(cmd);
