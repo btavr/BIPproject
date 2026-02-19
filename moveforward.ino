@@ -6,6 +6,9 @@
 #define RXD2 25 // Conectar ao TX do Wave Rover
 #define TXD2 26 // Conectar ao RX do Wave Rover
 
+#define RX_QORVO 16
+#define TX_QORVO 17
+
 // ========== DATA STRUCTURE ==========
 // Structure to send velocity commands via ESP-NOW
 typedef struct __attribute__((packed)) {
