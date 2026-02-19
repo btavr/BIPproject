@@ -202,12 +202,20 @@ void readCoordinatesFromSerial2() {
 
       Serial.print("Received coordinates from robot: x=");
       Serial.print(x);
-      Serial.print(", y=");
+      Serial.print(" (raw), y=");
       Serial.print(y);
-      Serial.print(", z=");
+      Serial.print(" (raw), z=");
       Serial.print(z);
-      Serial.print(", qf=");
+      Serial.print(" (raw), qf=");
       Serial.println(qf);
+      
+      Serial.print("Converted to meters: x=");
+      Serial.print(x_m, 6);
+      Serial.print(", y=");
+      Serial.print(y_m, 6);
+      Serial.print(", z=");
+      Serial.print(z_m, 6);
+      Serial.println();
 
       // Send coordinates via ESP-NOW using the structured format
       sendCoordenates(x_m, y_m, z_m, distance, orientation);

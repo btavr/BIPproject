@@ -72,6 +72,8 @@ std_msgs__msg__Float64 orientation_pub_msg;  // Message for publishing orientati
 
 float linearVelocity;   // X: linear velocity in m/s
 float angularVelocity;  // Z: angular velocity in rad/s
+unsigned long lastCoordTestTime = 0;
+const unsigned long COORD_TEST_INTERVAL = 5000;  // Test publish every 5 seconds
 
 void linear_vel_callback(const void* msgin);
 void angular_vel_callback(const void* msgin);
@@ -210,6 +212,19 @@ void setup() {
   Serial.print(angularVelocity);
   Serial.println(" rad/s");
   Serial.println("(Publish to /linear_velocity and /angular_velocity to override)");
+  Serial.println("\n=== ROS Topics ===");
+  Serial.println("Publishers:");
+  Serial.println("  /current_x (std_msgs/Float64)");
+  Serial.println("  /current_y (std_msgs/Float64)");
+  Serial.println("  /current_z (std_msgs/Float64)");
+  Serial.println("  /distance (std_msgs/Float64)");
+  Serial.println("  /orientation (std_msgs/Float64)");
+  Serial.println("  /linear_velocity (std_msgs/Float64)");
+  Serial.println("  /angular_velocity (std_msgs/Float64)");
+  Serial.println("Subscriptions:");
+  Serial.println("  /linear_velocity (std_msgs/Float64)");
+  Serial.println("  /angular_velocity (std_msgs/Float64)");
+  Serial.println("========================\n");
 }
 
 void linear_vel_callback(const void* msgin) {
@@ -244,10 +259,28 @@ void loop() {
   angular_vel_pub_msg.data = (double)angularVelocity;
   rcl_publish(&angular_vel_pub, &angular_vel_pub_msg, NULL);
   
+  // Periodic test publish to verify topics work (every 5 seconds)
+  unsigned long currentTime = millis();
+  if (currentTime - lastCoordTestTime >= COORD_TEST_INTERVAL) {
+    Serial.println("=== TEST: Publishing test coordinates ===");
+    current_x_pub_msg.data = 999.999;  // Test value
+    current_y_pub_msg.data = 888.888;
+    current_z_pub_msg.data = 777.777;
+    rcl_publish(&current_x_pub, &current_x_pub_msg, NULL);
+    rcl_publish(&current_y_pub, &current_y_pub_msg, NULL);
+    rcl_publish(&current_z_pub, &current_z_pub_msg, NULL);
+    Serial.println("Published test values: X=999.999, Y=888.888, Z=777.777");
+    Serial.println("If you see these values on ROS topics, publishing works!");
+    lastCoordTestTime = currentTime;
+  }
+  
   delay(50);
   // Note: Velocity is sent immediately in callbacks when received
   // This periodic send ensures the robot keeps moving even if no new commands arrive
   sendVelocity(linearVelocity, angularVelocity);
+  
+  // Note: Coordinates are received and published in OnDataRecv callback
+  // The executor spin above ensures ROS messages are sent to the agent
 }
 
 void sendVelocity(float linearVel, float angularVel){
@@ -287,45 +320,81 @@ void OnDataRecv(const esp_now_recv_info* info, const unsigned char* incomingData
     if (info->src_addr[i] < 0x10) Serial.print("0");
     Serial.print(info->src_addr[i], HEX);
   }
-  Serial.println();
+  Serial.print(" (expected ");
+  Serial.print(sizeof(current_coordinates_t));
+  Serial.println(" bytes for coordinates)");
   
   // Check if this is coordinates data (from moveforward board)
   if (len == sizeof(current_coordinates_t)) {
     current_coordinates_t coords;
     memcpy(&coords, incomingData, sizeof(current_coordinates_t));
     
-    Serial.print("Received coordinates: X=");
-    Serial.print(coords.currentX);
+    Serial.print("Parsed coordinates: X=");
+    Serial.print(coords.currentX, 6);  // More decimal places for debugging
     Serial.print(", Y=");
-    Serial.print(coords.currentY);
+    Serial.print(coords.currentY, 6);
     Serial.print(", Z=");
-    Serial.print(coords.currentZ);
+    Serial.print(coords.currentZ, 6);
     Serial.print(", distance=");
-    Serial.print(coords.distance);
+    Serial.print(coords.distance, 6);
     Serial.print(", orientation=");
-    Serial.println(coords.orientation);
+    Serial.println(coords.orientation, 6);
     
-    // Publish coordinates to ROS topics
+    // Publish coordinates to ROS topics immediately when received (callback-driven)
     current_x_pub_msg.data = (double)coords.currentX;
-    rcl_publish(&current_x_pub, &current_x_pub_msg, NULL);
+    rcl_ret_t ret_x = rcl_publish(&current_x_pub, &current_x_pub_msg, NULL);
+    if (ret_x != RCL_RET_OK) {
+      Serial.print("ERROR publishing X: ");
+      Serial.println(ret_x);
+    } else {
+      Serial.print("✓ Published X=");
+      Serial.print(coords.currentX, 6);
+      Serial.println(" to /current_x");
+    }
     
     current_y_pub_msg.data = (double)coords.currentY;
-    rcl_publish(&current_y_pub, &current_y_pub_msg, NULL);
+    rcl_ret_t ret_y = rcl_publish(&current_y_pub, &current_y_pub_msg, NULL);
+    if (ret_y != RCL_RET_OK) {
+      Serial.print("ERROR publishing Y: ");
+      Serial.println(ret_y);
+    } else {
+      Serial.print("✓ Published Y=");
+      Serial.print(coords.currentY, 6);
+      Serial.println(" to /current_y");
+    }
     
     current_z_pub_msg.data = (double)coords.currentZ;
-    rcl_publish(&current_z_pub, &current_z_pub_msg, NULL);
+    rcl_ret_t ret_z = rcl_publish(&current_z_pub, &current_z_pub_msg, NULL);
+    if (ret_z != RCL_RET_OK) {
+      Serial.print("ERROR publishing Z: ");
+      Serial.println(ret_z);
+    } else {
+      Serial.print("✓ Published Z=");
+      Serial.print(coords.currentZ, 6);
+      Serial.println(" to /current_z");
+    }
     
     distance_pub_msg.data = (double)coords.distance;
-    rcl_publish(&distance_pub, &distance_pub_msg, NULL);
+    rcl_ret_t ret_d = rcl_publish(&distance_pub, &distance_pub_msg, NULL);
+    if (ret_d != RCL_RET_OK) {
+      Serial.print("ERROR publishing distance: ");
+      Serial.println(ret_d);
+    }
     
     orientation_pub_msg.data = (double)coords.orientation;
-    rcl_publish(&orientation_pub, &orientation_pub_msg, NULL);
+    rcl_ret_t ret_o = rcl_publish(&orientation_pub, &orientation_pub_msg, NULL);
+    if (ret_o != RCL_RET_OK) {
+      Serial.print("ERROR publishing orientation: ");
+      Serial.println(ret_o);
+    }
     
-    Serial.println("Published coordinates to ROS topics");
+    Serial.println("All coordinates published to ROS topics");
   } else {
     // Legacy data format (for backward compatibility)
     Serial.print("Received legacy data (");
     Serial.print(len);
+    Serial.print(" bytes, expected ");
+    Serial.print(sizeof(current_coordinates_t));
     Serial.println(" bytes)");
   }
 }
