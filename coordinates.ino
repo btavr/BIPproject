@@ -15,6 +15,22 @@ void OnDataSent(const wifi_tx_info_t* info, esp_now_send_status_t status);
 void OnDataRecv(const esp_now_recv_info* info, const unsigned char* incomingData, int len);
 esp_err_t addPeer(uint8_t* mac, esp_now_peer_info_t* peerInfo);
 
+typedef struct __attribute__((packed)) {
+  float targetX;      // Target X coordinate (meters)
+  float targetY;      // Target Y coordinate (meters)
+  float targetZ;      // Target Z coordinate (meters) or orientation
+  float linearVel;    // Linear velocity in m/s
+  float angularVel;   // Angular velocity in rad/s
+} robot_command_t;
+
+typedef struct __attribute__((packed)) {
+  float currentX;      // Target X coordinate 
+  float currentY;      // Target Y coordinate 
+  float currentZ;      // Target Z coordinate ) or orientation
+  float distance;
+  float orientation;   
+} current_coordinates_t;
+
 // ========== SETUP ==========
 void setup() {
   Serial.begin(115200);

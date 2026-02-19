@@ -9,13 +9,25 @@
 #include <std_msgs/msg/float64.h>
 #include <rclc/executor.h>
 #include <std_msgs/msg/bool.h>
+#include <std_msgs/msg/string.h>
 
 // ========== DATA STRUCTURE ==========
 // Structure to send velocity commands via ESP-NOW
 typedef struct __attribute__((packed)) {
-  float linearVel;   // X: linear velocity in m/s
-  float angularVel;  // Z: angular velocity in rad/s
-} velocity_command_t;
+  float targetX;      // Target X coordinate (meters)
+  float targetY;      // Target Y coordinate (meters)
+  float targetZ;      // Target Z coordinate (meters) or orientation
+  float linearVel;    // Linear velocity in m/s
+  float angularVel;   // Angular velocity in rad/s
+} robot_command_t;
+
+typedef struct __attribute__((packed)) {
+  float currentX;      // Target X coordinate 
+  float currentY;      // Target Y coordinate 
+  float currentZ;      // Target Z coordinate ) or orientation
+  float distance;
+  float orientation;   
+} current_coordinates_t;
 
 // ========== FUNCTION PROTOTYPES ==========
 void OnDataSent(const wifi_tx_info_t* info, esp_now_send_status_t status);
@@ -34,6 +46,7 @@ rcl_publisher_t publisher;
 rcl_publisher_t speed;
 rcl_publisher_t linear_vel_pub;   // Publisher for linear velocity
 rcl_publisher_t angular_vel_pub;  // Publisher for angular velocity
+rcl_publisher_t current_coordinates_pub;  // Publisher for all coordinates
 rclc_support_t support;
 rcl_allocator_t allocator;
 
@@ -47,9 +60,17 @@ std_msgs__msg__Float64 linear_vel_msg;
 std_msgs__msg__Float64 angular_vel_msg;
 std_msgs__msg__Float64 linear_vel_pub_msg;   // Message for publishing linear velocity
 std_msgs__msg__Float64 angular_vel_pub_msg;  // Message for publishing angular velocity
+std_msgs__msg__String coordinates_msg;       // Message for publishing all coordinates
 
 float linearVelocity;   // X: linear velocity in m/s
 float angularVelocity;  // Z: angular velocity in rad/s
+
+// Current coordinates received from coordinates.ino
+float currentX = 0.0f;
+float currentY = 0.0f;
+float currentZ = 0.0f;
+int qualityFactor = 0;
+char coordinates_str[128];  // Buffer for coordinate string message
 
 void linear_vel_callback(const void* msgin);
 void angular_vel_callback(const void* msgin);
@@ -115,6 +136,19 @@ void setup() {
     "angular_velocity"
   );
 
+  // Publisher to publish all current coordinates to ROS topic
+  rclc_publisher_init_default(
+    &current_coordinates_pub,
+    &node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, String),
+    "current_coordinates"
+  );
+  
+  // Initialize string message to use static buffer
+  coordinates_msg.data.data = coordinates_str;
+  coordinates_msg.data.size = 0;
+  coordinates_msg.data.capacity = sizeof(coordinates_str);
+
   // Subscriptions to receive velocity commands from ROS
   // /linear_velocity: X value (linear velocity in m/s)
   rclc_subscription_init_default(
@@ -177,6 +211,15 @@ void loop() {
   angular_vel_pub_msg.data = (double)angularVelocity;
   rcl_publish(&angular_vel_pub, &angular_vel_pub_msg, NULL);
   
+  // Publish all coordinates as a single string message
+  int str_len = snprintf(coordinates_str, sizeof(coordinates_str), "{\"x\":%.3f,\"y\":%.3f,\"z\":%.3f,\"qf\":%d}", 
+                         currentX, currentY, currentZ, qualityFactor);
+  if (str_len > 0 && str_len < sizeof(coordinates_str)) {
+    coordinates_msg.data.data = coordinates_str;
+    coordinates_msg.data.size = str_len;
+    rcl_publish(&current_coordinates_pub, &coordinates_msg, NULL);
+  }
+  
   delay(50);
   // Note: Velocity is sent immediately in callbacks when received
   // This periodic send ensures the robot keeps moving even if no new commands arrive
@@ -206,14 +249,40 @@ void sendVelocity(float linearVel, float angularVel){
 
 
 void OnDataRecv(const esp_now_recv_info* info, const unsigned char* incomingData, int len) {
-  
-  
-  char msg[len+1] = {0};
-  double number;
-  memcpy(&number, (void*)incomingData, sizeof(double));
-
-  Serial.print("Received data: ");
-  Serial.println(number);
+  // Check if this is JSON coordinate data from coordinates.ino
+  // Format: {"x":1234, "y":5678, "z":90, "qf":100}
+  if (len > 0 && incomingData[0] == '{') {
+    // This is JSON coordinate data
+    char jsonStr[len + 1];
+    memcpy(jsonStr, incomingData, len);
+    jsonStr[len] = '\0';
+    
+    // Parse JSON: {"x":1234, "y":5678, "z":90, "qf":100}
+    int x = 0, y = 0, z = 0, qf = 0;
+    if (sscanf(jsonStr, "{\"x\":%d, \"y\":%d, \"z\":%d, \"qf\":%d}", &x, &y, &z, &qf) == 4) {
+      // Convert from millimeters to meters (Qorvo typically sends in mm)
+      currentX = x / 1000.0f;
+      currentY = y / 1000.0f;
+      currentZ = z / 1000.0f;
+      qualityFactor = qf;
+      
+      Serial.print("Received coordinates: X=");
+      Serial.print(currentX);
+      Serial.print(" m, Y=");
+      Serial.print(currentY);
+      Serial.print(" m, Z=");
+      Serial.print(currentZ);
+      Serial.print(" m, QF=");
+      Serial.println(qualityFactor);
+    } else {
+      Serial.print("Failed to parse coordinates JSON: ");
+      Serial.println(jsonStr);
+    }
+  } else {
+    // Handle other data types if needed
+    Serial.print("Received non-JSON data, length: ");
+    Serial.println(len);
+  }
 }
 void OnDataSent(const wifi_tx_info_t* info, esp_now_send_status_t status) {
   return;

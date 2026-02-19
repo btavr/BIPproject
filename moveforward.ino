@@ -9,9 +9,19 @@
 // ========== DATA STRUCTURE ==========
 // Structure to receive velocity commands via ESP-NOW (must match gateway structure)
 typedef struct __attribute__((packed)) {
-  float linearVel;   // X: linear velocity in m/s
-  float angularVel;  // Z: angular velocity in rad/s
-} velocity_command_t;
+  float targetX;      // Target X coordinate (meters)
+  float targetY;      // Target Y coordinate (meters)
+  float targetZ;      // Target Z coordinate (meters) or orientation
+  float linearVel;    // Linear velocity in m/s
+  float angularVel;   // Angular velocity in rad/s
+} robot_command_t;
+
+typedef struct __attribute__((packed)) {
+  float currentX;      // Target X coordinate 
+  float currentY;      // Target Y coordinate 
+  float currentZ;      // Target Z coordinate ) or orientation
+  float distance;    // distance to the target in cm
+} current_coordinates_t;
 
 // ========== FUNCTION PROTOTYPES ==========
 void OnDataRecv(const esp_now_recv_info* info, const unsigned char* incomingData, int len);
