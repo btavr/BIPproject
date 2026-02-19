@@ -62,16 +62,29 @@ void setup() {
   WiFi.begin();
   esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
 
-  esp_now_init();
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("ESP-NOW init failed!");
+    return;
+  }
 
   esp_now_register_send_cb(OnDataSent);
   esp_now_register_recv_cb(OnDataRecv);
 
-  addPeer(peerMAC, NULL);
+  if (addPeer(peerMAC, NULL) != ESP_OK) {
+    Serial.println("Failed to add ESP-NOW peer!");
+    return;
+  }
   
-  // Serial.println("Setup complete");
-  // Serial.print("MAC Address: ");
-  // Serial.println(WiFi.macAddress());
+  Serial.println("Setup complete");
+  Serial.print("Gateway MAC Address: ");
+  Serial.println(WiFi.macAddress());
+  Serial.print("Target peer MAC: ");
+  for (int i = 0; i < 6; i++) {
+    if (i > 0) Serial.print(":");
+    if (peerMAC[i] < 0x10) Serial.print("0");
+    Serial.print(peerMAC[i], HEX);
+  }
+  Serial.println();
 
   //   // Initialize micro-ROS
   set_microros_transports();
@@ -197,9 +210,12 @@ void sendVelocity(float linearVel, float angularVel){
     Serial.print(linearVel);
     Serial.print(" m/s, Z=");
     Serial.print(angularVel);
-    Serial.println(" rad/s");
+    Serial.print(" rad/s (size=");
+    Serial.print(sizeof(velocity_command_t));
+    Serial.println(" bytes)");
   } else {
-    Serial.println("Failed to send velocity via ESP-NOW");
+    Serial.print("Failed to send velocity via ESP-NOW. Error code: ");
+    Serial.println(result);
   }
 }
 
@@ -216,16 +232,27 @@ void OnDataRecv(const esp_now_recv_info* info, const unsigned char* incomingData
   Serial.println(number);
 }
 void OnDataSent(const wifi_tx_info_t* info, esp_now_send_status_t status) {
-  return;
+  if (status == ESP_NOW_SEND_SUCCESS) {
+    Serial.println("ESP-NOW: Message sent successfully");
+  } else {
+    Serial.println("ESP-NOW: Message send failed!");
+  }
 }
 
 esp_err_t addPeer(uint8_t* mac, esp_now_peer_info_t* peerInfo){
+  esp_now_peer_info_t* localPeerInfo;
   if(peerInfo == NULL){
-    peerInfo = (esp_now_peer_info_t*)malloc(sizeof(esp_now_peer_info_t));
-    memset(peerInfo, 0, sizeof(esp_now_peer_info_t));
+    localPeerInfo = (esp_now_peer_info_t*)malloc(sizeof(esp_now_peer_info_t));
+    memset(localPeerInfo, 0, sizeof(esp_now_peer_info_t));
+  } else {
+    localPeerInfo = peerInfo;
   }
-  memcpy(peerInfo->peer_addr, mac, 6);
-  peerInfo->channel = 0;
-  peerInfo->encrypt = false;
-  return esp_now_add_peer(peerInfo);
+  memcpy(localPeerInfo->peer_addr, mac, 6);
+  localPeerInfo->channel = 1;  // Match the channel set in setup()
+  localPeerInfo->encrypt = false;
+  esp_err_t result = esp_now_add_peer(localPeerInfo);
+  if (peerInfo == NULL) {
+    free(localPeerInfo);  // Free allocated memory
+  }
+  return result;
 }

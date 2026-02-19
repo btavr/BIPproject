@@ -45,9 +45,19 @@ void setup() {
 void OnDataRecv(const esp_now_recv_info* info, const unsigned char* incomingData, int len) {
   (void)info;
   
+  Serial.print("ESP-NOW: Received ");
+  Serial.print(len);
+  Serial.print(" bytes from MAC: ");
+  for (int i = 0; i < 6; i++) {
+    if (i > 0) Serial.print(":");
+    if (info->src_addr[i] < 0x10) Serial.print("0");
+    Serial.print(info->src_addr[i], HEX);
+  }
+  Serial.println();
+  
   // Check if received data matches our struct size
   if (len != sizeof(velocity_command_t)) {
-    Serial.print("Invalid data length. Expected ");
+    Serial.print("ERROR: Invalid data length. Expected ");
     Serial.print(sizeof(velocity_command_t));
     Serial.print(" bytes, received ");
     Serial.println(len);
@@ -77,9 +87,15 @@ void sendToWaveRover(float linearVel, float angularVel) {
   // X = linear velocity in m/s, Z = angular velocity in rad/s
   char cmd[64];
   snprintf(cmd, sizeof(cmd), "{\"T\":13,\"X\":%.3f,\"Z\":%.3f}", (double)linearVel, (double)angularVel);
-  Serial2.println(cmd);
-  Serial.print("Sent to robot: ");
-  Serial.println(cmd);
+  
+  // Check if Serial2 is available before sending
+  if (Serial2.availableForWrite() > 0) {
+    Serial2.println(cmd);
+    Serial.print("Sent to robot via Serial2: ");
+    Serial.println(cmd);
+  } else {
+    Serial.println("ERROR: Serial2 not available for writing!");
+  }
 }
 
 void loop() {
