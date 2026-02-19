@@ -151,12 +151,22 @@ void OnDataRecv(const esp_now_recv_info* info, const unsigned char* incomingData
     linearVelocity = velCmd.linearVel;
     angularVelocity = velCmd.angularVel;
     
-    // Debug: Check if speed is being received
+      // Debug: Check if speed is being received - show raw struct values
     Serial.print("RX: L=");
-    Serial.print(linearVelocity);
+    Serial.print(linearVelocity, 6);
     Serial.print(" A=");
-    Serial.print(angularVelocity);
-    Serial.print(" LEN=");
+    Serial.print(angularVelocity, 6);
+    Serial.print(" | Raw struct: targetX=");
+    Serial.print(velCmd.targetX, 3);
+    Serial.print(" targetY=");
+    Serial.print(velCmd.targetY, 3);
+    Serial.print(" targetZ=");
+    Serial.print(velCmd.targetZ, 3);
+    Serial.print(" linearVel=");
+    Serial.print(velCmd.linearVel, 6);
+    Serial.print(" angularVel=");
+    Serial.print(velCmd.angularVel, 6);
+    Serial.print(" | LEN=");
     Serial.println(len);
     
     sendToWaveRover(linearVelocity, angularVelocity);
@@ -175,12 +185,30 @@ void sendToWaveRover(float linearVel, float angularVel) {
   char cmd[64];
   snprintf(cmd, sizeof(cmd), "{\"T\":13,\"X\":%.3f,\"Z\":%.3f}", (double)linearVel, (double)angularVel);
   
+  // Debug: Show exact command being sent
+  Serial.print("ROBOT CMD: ");
+  Serial.print(cmd);
+  Serial.print(" | L=");
+  Serial.print(linearVel, 6);
+  Serial.print(" A=");
+  Serial.print(angularVel, 6);
+  Serial.print(" | Len=");
+  Serial.print(strlen(cmd));
+  Serial.print(" | Serial1 available=");
+  Serial.println(Serial1.availableForWrite());
+  
   // Envia para o Wave Rover usando a Serial1
   Serial1.println(cmd);
   
-  // Debug: Check if command is sent to robot
-  Serial.print("ROBOT: ");
-  Serial.println(cmd);
+  // Verify Serial1 is working - try to read back if possible
+  delay(10);
+  if (Serial1.available()) {
+    Serial.print("ROBOT RESPONSE: ");
+    while(Serial1.available()) {
+      Serial.print((char)Serial1.read());
+    }
+    Serial.println();
+  }
 }
 
 void OnDataSent(const wifi_tx_info_t* info, esp_now_send_status_t status) { 

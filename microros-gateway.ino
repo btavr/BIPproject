@@ -172,6 +172,11 @@ void setup() {
 void linear_vel_callback(const void* msgin) {
   const std_msgs__msg__Float64* m = (const std_msgs__msg__Float64*)msgin;
   linearVelocity = (float)m->data;
+  Serial.print("[CALLBACK] Linear vel received: ");
+  Serial.print(linearVelocity, 6);
+  Serial.print(" (raw data: ");
+  Serial.print(m->data, 6);
+  Serial.println(")");
   // Immediately send to moveforward board
   sendVelocity(linearVelocity, angularVelocity);
 }
@@ -179,6 +184,11 @@ void linear_vel_callback(const void* msgin) {
 void angular_vel_callback(const void* msgin) {
   const std_msgs__msg__Float64* m = (const std_msgs__msg__Float64*)msgin;
   angularVelocity = (float)m->data;
+  Serial.print("[CALLBACK] Angular vel received: ");
+  Serial.print(angularVelocity, 6);
+  Serial.print(" (raw data: ");
+  Serial.print(m->data, 6);
+  Serial.println(")");
   // Immediately send to moveforward board
   sendVelocity(linearVelocity, angularVelocity);
 }
