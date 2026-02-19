@@ -14,8 +14,15 @@
 #define RX_ROVER 26 // Conectar ao TX do Wave Rover
 #define TX_ROVER 25 // Conectar ao RX do Wave Rover
 
-// Endereço MAC do ESP32 que vai RECEBER as coordenadas da Qorvo
+// Endereço MAC do ESP32 que vai RECEBER as coordenadas da Qorvo (microros-gateway)
+// Este é o MAC do dispositivo que executa microros-gateway.ino
 uint8_t peerMAC[6] = {0xE0, 0x8C, 0xFE, 0x36, 0x62, 0xA8};
+
+// NOTA IMPORTANTE: 
+// - final.ino envia coordenadas PARA este MAC (microros-gateway)
+// - final.ino RECEBE comandos de velocidade DE microros-gateway (não precisa adicionar peer para receber)
+// - microros-gateway.ino deve ter peerMAC apontando para o MAC deste dispositivo (final.ino)
+// - Para descobrir o MAC deste dispositivo, ver Serial.print("My MAC Address:") no setup
 
 // ========== DATA STRUCTURES (WAVE ROVER) ==========
 typedef struct __attribute__((packed)) {
@@ -59,7 +66,6 @@ void setup() {
   // Iniciar Serial2 para a Qorvo (Pinos 16 e 17)
   Serial2.begin(115200, SERIAL_8N1, RX_QORVO, TX_QORVO);
   
-  Serial.println("System Ready. Booting Wave Rover & Qorvo modules...");
   delay(1000);
 
   // Configuração Wi-Fi para ESP-NOW
@@ -67,10 +73,7 @@ void setup() {
   esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
   
   // Iniciar ESP-NOW
-  if (esp_now_init() != ESP_OK) {
-    Serial.println("Error initializing ESP-NOW");
-    return;
-  }
+  esp_now_init();
   
   // Registar callbacks (Juntámos os dois)
   esp_now_register_send_cb(OnDataSent);
@@ -78,10 +81,6 @@ void setup() {
   
   // Adicionar o dispositivo recetor para enviar as coordenadas
   addPeer(peerMAC, NULL);
-  
-  Serial.println("ESP-NOW Ready.");
-  Serial.print("My MAC Address: ");
-  Serial.println(WiFi.macAddress());
   
   // Inicia o relógio para a Qorvo
   qorvoTimer = millis(); 
@@ -124,9 +123,6 @@ void loop() {
         char payload[100]; 
         snprintf(payload, sizeof(payload), "{\"x\":%d, \"y\":%d, \"z\":%d, \"qf\":%d}", x, y, z, qf);
 
-        Serial.print("Sending: ");
-        Serial.println(payload);
-
         // Enviar via ESP-NOW as coordenadas
         esp_now_send(peerMAC, (uint8_t *)payload, strlen(payload) + 1);
       }
@@ -155,21 +151,12 @@ void OnDataRecv(const esp_now_recv_info* info, const unsigned char* incomingData
     linearVelocity = velCmd.linearVel;
     angularVelocity = velCmd.angularVel;
     
-    Serial.print("Received velocity: X=");
-    Serial.print(linearVelocity);
-    Serial.print(" m/s, Z=");
-    Serial.print(angularVelocity);
-    Serial.println(" rad/s");
-    
     sendToWaveRover(linearVelocity, angularVelocity);
     
   } else {
     // 2. TEXTO DE RETORNO (O que vias no teu Script 2)
     char msg[len+1] = {0};
     memcpy(msg, (void*)incomingData, len);
-
-    Serial.print("Received back: ");
-    Serial.println((char*) msg);
   }
 }
 
@@ -180,14 +167,10 @@ void sendToWaveRover(float linearVel, float angularVel) {
   
   // Envia para o Wave Rover usando a Serial1
   Serial1.println(cmd);
-  
-  Serial.print("Sent to robot: ");
-  Serial.println(cmd);
 }
 
 void OnDataSent(const wifi_tx_info_t* info, esp_now_send_status_t status) { 
-  Serial.print("Send Status:\t");
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Success" : "Fail");
+  return;
 }
 
 esp_err_t addPeer(uint8_t* mac, esp_now_peer_info_t* peerInfo){
