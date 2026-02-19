@@ -163,15 +163,24 @@ void sendCoordenates(float x, float y, float z, float distance, float orientatio
 }
 
 void OnDataSent(const wifi_tx_info_t* info, esp_now_send_status_t status) {
-  // Only log failures
-  if (status != ESP_NOW_SEND_SUCCESS) {
-    Serial.println("ESP-NOW: Coordinate send failed!");
+  if (status == ESP_NOW_SEND_SUCCESS) {
+    Serial.println("✓ ESP-NOW: Coordinates sent successfully!");
+  } else {
+    Serial.println("✗ ESP-NOW: Coordinate send FAILED!");
   }
 }
 
 void readCoordinatesFromSerial2() {
   // Check if we have enough data (15 bytes: header + position data)
-  if (Serial2.available() >= 15) { 
+  int available = Serial2.available();
+  if (available > 0 && available < 15) {
+    Serial.print("DEBUG: Serial2 has ");
+    Serial.print(available);
+    Serial.println(" bytes (waiting for 15 bytes)");
+  }
+  
+  if (Serial2.available() >= 15) {
+    Serial.println("\n=== READING COORDINATES FROM SERIAL2 ==="); 
     byte header_type = Serial2.read();   
     byte header_len = Serial2.read();    
     byte err_code = Serial2.read();      
@@ -216,9 +225,11 @@ void readCoordinatesFromSerial2() {
       Serial.print(", z=");
       Serial.print(z_m, 6);
       Serial.println();
+      Serial.println("=== SENDING VIA ESP-NOW ===");
 
       // Send coordinates via ESP-NOW using the structured format
       sendCoordenates(x_m, y_m, z_m, distance, orientation);
+      Serial.println("=== COORDINATE SEND COMPLETE ===\n");
       
       // Alternative: Send as JSON if you prefer (uncomment below and comment above)
       /*

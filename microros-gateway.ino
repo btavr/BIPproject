@@ -72,8 +72,6 @@ std_msgs__msg__Float64 orientation_pub_msg;  // Message for publishing orientati
 
 float linearVelocity;   // X: linear velocity in m/s
 float angularVelocity;  // Z: angular velocity in rad/s
-unsigned long lastCoordTestTime = 0;
-const unsigned long COORD_TEST_INTERVAL = 5000;  // Test publish every 5 seconds
 
 void linear_vel_callback(const void* msgin);
 void angular_vel_callback(const void* msgin);
@@ -259,21 +257,6 @@ void loop() {
   angular_vel_pub_msg.data = (double)angularVelocity;
   rcl_publish(&angular_vel_pub, &angular_vel_pub_msg, NULL);
   
-  // Periodic test publish to verify topics work (every 5 seconds)
-  unsigned long currentTime = millis();
-  if (currentTime - lastCoordTestTime >= COORD_TEST_INTERVAL) {
-    Serial.println("=== TEST: Publishing test coordinates ===");
-    current_x_pub_msg.data = 999.999;  // Test value
-    current_y_pub_msg.data = 888.888;
-    current_z_pub_msg.data = 777.777;
-    rcl_publish(&current_x_pub, &current_x_pub_msg, NULL);
-    rcl_publish(&current_y_pub, &current_y_pub_msg, NULL);
-    rcl_publish(&current_z_pub, &current_z_pub_msg, NULL);
-    Serial.println("Published test values: X=999.999, Y=888.888, Z=777.777");
-    Serial.println("If you see these values on ROS topics, publishing works!");
-    lastCoordTestTime = currentTime;
-  }
-  
   delay(50);
   // Note: Velocity is sent immediately in callbacks when received
   // This periodic send ensures the robot keeps moving even if no new commands arrive
@@ -312,7 +295,8 @@ void sendVelocity(float linearVel, float angularVel){
 
 
 void OnDataRecv(const esp_now_recv_info* info, const unsigned char* incomingData, int len) {
-  Serial.print("ESP-NOW: Received ");
+  Serial.println("\n=== ESP-NOW DATA RECEIVED ===");
+  Serial.print("Received ");
   Serial.print(len);
   Serial.print(" bytes from MAC: ");
   for (int i = 0; i < 6; i++) {
@@ -326,6 +310,7 @@ void OnDataRecv(const esp_now_recv_info* info, const unsigned char* incomingData
   
   // Check if this is coordinates data (from moveforward board)
   if (len == sizeof(current_coordinates_t)) {
+    Serial.println("Data size matches coordinates struct!");
     current_coordinates_t coords;
     memcpy(&coords, incomingData, sizeof(current_coordinates_t));
     
@@ -388,14 +373,16 @@ void OnDataRecv(const esp_now_recv_info* info, const unsigned char* incomingData
       Serial.println(ret_o);
     }
     
-    Serial.println("All coordinates published to ROS topics");
+    Serial.println("✓ All coordinates published to ROS topics");
+    Serial.println("=== END ESP-NOW RECEIVE ===\n");
   } else {
     // Legacy data format (for backward compatibility)
-    Serial.print("Received legacy data (");
+    Serial.print("Received legacy/wrong size data (");
     Serial.print(len);
     Serial.print(" bytes, expected ");
     Serial.print(sizeof(current_coordinates_t));
     Serial.println(" bytes)");
+    Serial.println("=== END ESP-NOW RECEIVE ===\n");
   }
 }
 void OnDataSent(const wifi_tx_info_t* info, esp_now_send_status_t status) {
